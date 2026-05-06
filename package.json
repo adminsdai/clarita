@@ -1,0 +1,54 @@
+{
+  "name": "cdt-lpdp",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "postinstall": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
+    "db:studio": "prisma studio"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.40.0",
+    "@prisma/client": "^6.19.3",
+    "@react-pdf/renderer": "^4.1.5",
+    "@supabase/supabase-js": "^2.47.10",
+    "bcryptjs": "^2.4.3",
+    "jose": "^5.9.6",
+    "next": "15.1.4",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
+    "react-markdown": "^9.0.1",
+    "remark-gfm": "^4.0.0",
+    "resend": "^4.0.1",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/node": "^22.19.17",
+    "@types/react": "19.0.2",
+    "@types/react-dom": "19.0.2",
+    "autoprefixer": "^10.4.20",
+    "eslint": "^9.17.0",
+    "eslint-config-next": "15.1.4",
+    "postcss": "^8.4.49",
+    "prisma": "^6.19.3",
+    "tailwindcss": "^3.4.17",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  },
+  "description": "MVP de una aplicación web que convierte el derecho de protección de datos personales en algo accionable: el ciudadano describe un caso (crédito negado, seguro encarecido, CV filtrado, beneficio rechazado), adjunta evidencia, y un agente especializado en la **Ley 19.628 + Ley 21.719** genera un reporte con sus derechos, fundamentos legales, plantillas de cartas y un PDF descargable.",
+  "main": "index.js",
+  "directories": {
+    "lib": "lib"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs"
+}

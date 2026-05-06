@@ -1,0 +1,68 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id                 String      @id @default(uuid())
+  name               String
+  rut                String      @unique
+  email              String      @unique
+  password           String
+  emailVerified      DateTime?
+  verifyToken        String?     @unique
+  verifyTokenExpires DateTime?
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+  solicitudes        Solicitud[]
+}
+
+enum SolicitudEstado {
+  ACTIVA
+  EN_PROCESO
+  CERRADA
+}
+
+model Solicitud {
+  id             String          @id @default(uuid())
+  glosa          String
+  fechaSolicitud DateTime        @default(now())
+  estado         SolicitudEstado @default(ACTIVA)
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId         String
+  adjuntos       Adjunto[]
+  reporte        Reporte?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model Adjunto {
+  id          String    @id @default(uuid())
+  filename    String
+  mimeType    String
+  size        Int
+  storagePath String
+  solicitud   Solicitud @relation(fields: [solicitudId], references: [id], onDelete: Cascade)
+  solicitudId String
+  createdAt   DateTime  @default(now())
+
+  @@index([solicitudId])
+}
+
+model Reporte {
+  id           String    @id @default(uuid())
+  textoReporte String
+  pdfPath      String?
+  solicitud    Solicitud @relation(fields: [solicitudId], references: [id], onDelete: Cascade)
+  solicitudId  String    @unique
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
