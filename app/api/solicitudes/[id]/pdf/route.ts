@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { ReporteDocument } from "@/lib/pdf/ReporteDocument";
-import { renderToBuffer } from "@react-pdf/renderer";
+import { renderToBuffer, type DocumentProps } from "@react-pdf/renderer";
 import { headers } from "next/headers";
 import React from "react";
 
@@ -32,7 +32,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
     reporteMarkdown: solicitud.reporte.textoReporte,
     fecha: solicitud.reporte.createdAt,
     userName: solicitud.user.name,
-  });
+  }) as React.ReactElement<DocumentProps>;
 
   const buffer = await renderToBuffer(element);
 
