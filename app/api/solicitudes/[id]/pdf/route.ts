@@ -27,8 +27,6 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
     return new Response("Reporte aún no disponible", { status: 409 });
   }
 
-  // El typing de @react-pdf/renderer es estricto con ReactElement<DocumentProps>.
-  // ReporteDocument retorna <Document>, así que el cast es runtime-safe.
   const render = renderToBuffer as (e: React.ReactElement) => Promise<Buffer>;
   const buffer = await render(
     React.createElement(ReporteDocument, {
@@ -42,7 +40,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
   return new Response(new Uint8Array(buffer), {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `inline; filename="reporte-${solicitud.id.slice(0, 8)}.pdf"`,
+      "Content-Disposition": `inline; filename="solicitud-${solicitud.id.slice(0, 8)}.pdf"`,
       "Cache-Control": "private, max-age=60",
     },
   });

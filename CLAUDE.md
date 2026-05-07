@@ -22,7 +22,7 @@ Setup inicial: `cp .env.example .env` → completar valores → `npm install` �
 
 Aplicación Next.js 15 (App Router) que es un asistente para ejercer derechos LPDP (Ley 19.628 + Ley 21.719). Toda la lógica vive en un único proyecto Next.js: las API routes hacen de backend.
 
-**Flujo central**: usuario se autentica → describe un caso + adjunta archivos → backend sube los adjuntos a Supabase Storage → llama al agente Claude con la base de conocimiento markdown como contexto → guarda el reporte → permite descargarlo como PDF. Todos los pasos del agente son síncronos en una sola request HTTP — no hay job queue.
+**Flujo central**: usuario se autentica → describe un caso + adjunta archivos → inicia conversación multi-turno con Clarita → al cierre, la solicitud formal se extrae como Reporte → descargable como PDF. Cada turno del agente es síncrono en una request HTTP — no hay job queue.
 
 ### Capas
 
@@ -30,7 +30,7 @@ Aplicación Next.js 15 (App Router) que es un asistente para ejercer derechos LP
 - `app/api/` — handlers REST (`route.ts`). Cada handler valida la sesión vía el header `x-user-id` que inyecta el middleware (no llama a `getSession()` directamente para evitar duplicar la verificación).
 - `lib/` — código server-only. No importar desde componentes cliente.
 - `components/` — UI. Server Components por defecto; los que llevan `"use client"` están en `forms/` y `dashboard/` cuando necesitan estado o eventos.
-- `prisma/schema.prisma` — modelo de datos: `User`, `Solicitud` (con enum `SolicitudEstado`), `Adjunto`, `Reporte`.
+- `prisma/schema.prisma` — modelo de datos: `User`, `Solicitud` (con enum `SolicitudEstado`), `Adjunto`, `Mensaje`, `Reporte`.
 - `knowledge-base/*.md` — base legal versionada en git. **No mover a BD ni a Storage** — `lib/kb.ts` la lee del filesystem en runtime y la cachea en memoria.
 
 ### Autenticación
@@ -47,13 +47,17 @@ El registro NO crea sesión. El usuario debe verificar el correo (Resend → tok
 
 Punto crítico de costo y latencia. Decisiones a respetar:
 
-- Modelo: **`claude-opus-4-7`**. No cambiar a sonnet/haiku sin acordarlo con el usuario — el dominio legal exige máxima precisión.
-- **Adaptive thinking** (`thinking: { type: "adaptive" }`). NO usar `budget_tokens` — está removido en Opus 4.7 y devuelve 400.
-- NO pasar `temperature` / `top_p` / `top_k` — también removidos en 4.7.
-- **Prompt caching obligatorio**: el `system` se envía como dos bloques `[preámbulo, KB-completa-con-cache_control-ephemeral]`. La KB es estática y voluminosa → ~90% cache hit. Cualquier cambio en `SYSTEM_PREAMBLE` o en los archivos de `/knowledge-base` invalida el caché — lo cual es correcto, pero implica el costo de re-write en la primera request post-deploy.
-- Streaming con `stream.finalMessage()`. NO usar `messages.create()` directo — `max_tokens: 8000` está cerca del umbral donde la SDK puede fallar por timeout.
+- Modelo: **`claude-sonnet-4-6`**.
+- **Extended thinking** (`thinking: { type: "enabled", budget_tokens: 10000 }`).
+- **Prompt caching obligatorio**: el `system` se envía como dos bloques `[preámbulo, KB-completa-con-cache_control-ephemeral]`. La KB es estática y voluminosa → ~90% cache hit.
+- Streaming con `stream.finalMessage()`. NO usar `messages.create()` directo.
 
-El handler `POST /api/solicitudes` orquesta: crea `Solicitud { ACTIVA }` → sube adjuntos → marca `EN_PROCESO` → llama al agente → guarda `Reporte` y marca `CERRADA`. Si el agente falla, vuelve a `ACTIVA` (no a un estado de error explícito — es intencional para permitir reintentos manuales).
+**Arquitectura multi-turno**: la conversación es multi-turno. Cada turno es una request HTTP síncrona. Los mensajes se almacenan en la tabla `Mensaje` (rol: `user` | `assistant`). El agente decide cuándo cerrar el caso emitiendo `[CASO_CERRADO]` y envolviendo la solicitud formal en `<solicitud_formal>...</solicitud_formal>`. Límite: 20 mensajes por solicitud.
+
+**Flujo**:
+1. `POST /api/solicitudes` — crea Solicitud + primer mensaje user → ejecuta primer turno del agente → guarda respuesta como Mensaje.
+2. `POST /api/solicitudes/[id]/messages` — guarda mensaje user → carga historial → ejecuta turno → guarda respuesta. Si el agente emite `[CASO_CERRADO]`, extrae `<solicitud_formal>` → guarda como `Reporte` → marca `CERRADA`.
+3. Si el agente falla, la solicitud vuelve a `ACTIVA` para permitir reintentos.
 
 ### Storage de archivos
 
@@ -80,7 +84,8 @@ Documentadas en detalle en `README.md` → "Decisiones técnicas". Resumen:
 - `directUrl` separado en Prisma porque `prisma migrate` necesita conexión directa, no el pooler PgBouncer de Supabase.
 - KB en `/knowledge-base/*.md` (no en BD ni Storage) — versionada con git, revisable en PRs.
 - Cookie HttpOnly+Secure+SameSite=Lax (no localStorage) para inmunidad XSS.
-- `claude-opus-4-7` con adaptive thinking + prompt caching.
+- `claude-sonnet-4-6` con extended thinking + prompt caching.
+- Conversación multi-turno con tabla `Mensaje` y señal de cierre `[CASO_CERRADO]`.
 
 ## Convenciones de código
 
