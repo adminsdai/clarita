@@ -1,10 +1,11 @@
 import { promises as fs } from "fs";
 import path from "path";
 
-let _cached: string | null = null;
+let _cachedKB: string | null = null;
+let _cachedPrompt: string | null = null;
 
 export async function loadKnowledgeBase(): Promise<string> {
-  if (_cached) return _cached;
+  if (_cachedKB) return _cachedKB;
   const dir = path.join(process.cwd(), "knowledge-base");
   const files = (await fs.readdir(dir))
     .filter((f) => f.endsWith(".md"))
@@ -15,6 +16,13 @@ export async function loadKnowledgeBase(): Promise<string> {
     const content = await fs.readFile(path.join(dir, f), "utf-8");
     parts.push(`<documento path="${f}">\n${content}\n</documento>`);
   }
-  _cached = parts.join("\n\n");
-  return _cached;
+  _cachedKB = parts.join("\n\n");
+  return _cachedKB;
+}
+
+export async function loadSystemPrompt(): Promise<string> {
+  if (_cachedPrompt) return _cachedPrompt;
+  const filePath = path.join(process.cwd(), "prompts", "system-prompt.md");
+  _cachedPrompt = await fs.readFile(filePath, "utf-8");
+  return _cachedPrompt;
 }

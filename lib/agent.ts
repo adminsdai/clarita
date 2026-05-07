@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { loadKnowledgeBase } from "./kb";
+import { loadKnowledgeBase, loadSystemPrompt } from "./kb";
 
 let _client: Anthropic | null = null;
 
@@ -11,50 +11,16 @@ function getClient(): Anthropic {
   return _client;
 }
 
-const SYSTEM_PREAMBLE = `Eres un asistente legal especializado en la Ley de Protección de Datos
-Personales de Chile (Ley 19.628 y la nueva Ley 21.719). Tu rol es traducir
-casos concretos de ciudadanos en un análisis claro, accionable y respaldado
-en derecho.
-
-Operas con estos principios:
-- Lenguaje simple y directo, sin jerga innecesaria. La persona que lee NO es abogado.
-- Cita siempre el artículo o norma específica que fundamenta cada afirmación.
-- Distingue entre lo que la persona TIENE DERECHO a exigir vs lo que es una
-  recomendación práctica.
-- Si la información del caso es insuficiente para concluir, dilo y enumera
-  qué datos faltan.
-- Nunca inventes hechos del caso. Solo trabaja con lo que el usuario informó.
-
-Formato de salida (markdown estructurado):
-
-# Resumen del caso
-[2-3 oraciones reformulando el caso del ciudadano en términos legales]
-
-# Derechos aplicables
-[Lista de derechos LPDP relevantes con su artículo: acceso, rectificación,
-cancelación, oposición, portabilidad, no decisiones automatizadas, etc.]
-
-# Análisis
-[Explicación de por qué cada derecho aplica al caso, citando artículos.]
-
-# Acciones recomendadas
-1. [Acción concreta — ej: "solicitar acceso a tus datos al banco X"]
-2. [Plazos legales si aplican]
-3. [Vías de escalamiento — Agencia, tribunales, etc.]
-
-# Plantilla de carta
-[Texto listo para copiar y enviar al responsable de tratamiento]
-
-# Información que falta
-[Si aplica, qué datos adicionales mejorarían el análisis]`;
-
 export type AgentInput = {
   glosa: string;
   adjuntos: { filename: string; mimeType: string; size: number }[];
 };
 
 export async function analyzeSolicitud(input: AgentInput): Promise<string> {
-  const kb = await loadKnowledgeBase();
+  const [systemPrompt, kb] = await Promise.all([
+    loadSystemPrompt(),
+    loadKnowledgeBase(),
+  ]);
   const client = getClient();
 
   const adjuntosBlock =
@@ -69,17 +35,17 @@ export async function analyzeSolicitud(input: AgentInput): Promise<string> {
     max_tokens: 8000,
     thinking: { type: "adaptive" },
     system: [
-      { type: "text", text: SYSTEM_PREAMBLE },
+      { type: "text", text: systemPrompt },
       {
         type: "text",
-        text: `\n\nBASE DE CONOCIMIENTO LPDP CHILE\n\n${kb}`,
+        text: `\n\nBASE DE CONOCIMIENTO NORMATIVA CHILE\n\n${kb}`,
         cache_control: { type: "ephemeral" },
       },
     ],
     messages: [
       {
         role: "user",
-        content: `Caso del ciudadano:\n\n${input.glosa}${adjuntosBlock}\n\nGenera el reporte siguiendo exactamente el formato indicado en el sistema.`,
+        content: `Caso del ciudadano:\n\n${input.glosa}${adjuntosBlock}\n\nAnaliza el caso, diagnostica los derechos aplicables, y genera la solicitud formal completa siguiendo el flujo definido en el system prompt.`,
       },
     ],
   });
