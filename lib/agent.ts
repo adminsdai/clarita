@@ -2,7 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { loadKnowledgeBase, loadSystemPrompt } from "./kb";
 
 const MODEL = "claude-sonnet-4-6";
-const MAX_TOKENS = 8000;
+const MAX_TOKENS = 16000;
 const THINKING_BUDGET = 10000;
 const CLOSING_SIGNAL = "[CASO_CERRADO]";
 
