@@ -17,6 +17,18 @@ export const runtime = "nodejs";
 export const maxDuration = 300;
 
 export async function POST(req: Request) {
+  try {
+    return await handlePost(req);
+  } catch (err) {
+    console.error("[solicitudes] uncaught:", err);
+    return NextResponse.json(
+      { error: "Error interno", _debug: serializeError(err) },
+      { status: 500 },
+    );
+  }
+}
+
+async function handlePost(req: Request) {
   const h = await headers();
   const userId = h.get("x-user-id");
   if (!userId) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
@@ -128,4 +140,27 @@ export async function GET() {
     },
   });
   return NextResponse.json({ solicitudes });
+}
+
+// DEBUG TEMPORAL — borrar después
+function serializeError(err: unknown) {
+  const envSnapshot = {
+    hasDatabaseUrl: !!process.env.DATABASE_URL,
+    hasAnthropicKey: !!process.env.ANTHROPIC_API_KEY,
+    hasSupabaseUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+    hasSupabaseSrk: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+    hasSupabaseBucket: !!process.env.SUPABASE_BUCKET,
+    bucketValue: process.env.SUPABASE_BUCKET ?? null,
+    cwd: process.cwd(),
+  };
+  if (err instanceof Error) {
+    return {
+      name: err.name,
+      message: err.message,
+      code: (err as Error & { code?: string }).code,
+      stack: err.stack?.split("\n").slice(0, 8).join("\n"),
+      env: envSnapshot,
+    };
+  }
+  return { raw: String(err), env: envSnapshot };
 }
