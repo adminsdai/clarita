@@ -113,7 +113,12 @@ async function handlePost(req: Request) {
       data: { estado: "ACTIVA" },
     });
     return NextResponse.json(
-      { error: "El análisis falló. Intenta nuevamente más tarde.", solicitudId: solicitud.id },
+      {
+        error: "El análisis falló. Intenta nuevamente más tarde.",
+        solicitudId: solicitud.id,
+        // DEBUG TEMPORAL — borrar después
+        _debug: serializeError(err),
+      },
       { status: 500 },
     );
   }
