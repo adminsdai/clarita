@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { Spinner } from "@/components/ui/Spinner";
 import { Alert } from "@/components/ui/Alert";
@@ -44,11 +45,15 @@ export function RegisterForm() {
 
   if (success) {
     return (
-      <Alert variant="success">
-        <strong className="block mb-1">¡Cuenta creada!</strong>
-        Te enviamos un correo a <strong>{form.email}</strong> con un enlace para verificar
-        tu cuenta. Revisa tu bandeja (y spam).
-      </Alert>
+      <div className="space-y-4">
+        <Alert variant="success">
+          <strong className="block mb-1">¡Cuenta creada!</strong>
+          Tu cuenta está lista. Ya puedes iniciar sesión.
+        </Alert>
+        <Link href="/login" className="btn-primary w-full">
+          Ir a iniciar sesión
+        </Link>
+      </div>
     );
   }
 
