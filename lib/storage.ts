@@ -16,7 +16,13 @@ function getClient(): SupabaseClient {
 }
 
 function getBucket(): string {
-  return process.env.SUPABASE_BUCKET ?? "cdt-files";
+  const bucket = process.env.SUPABASE_BUCKET?.trim();
+  if (!bucket) {
+    throw new Error(
+      "SUPABASE_BUCKET no configurado o vacío. Define la env var con el nombre del bucket (ej. cdt-files).",
+    );
+  }
+  return bucket;
 }
 
 export async function uploadFile(
