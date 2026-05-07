@@ -62,7 +62,7 @@ model Mensaje {
   id          String    @id @default(uuid())
   rol         String
   contenido   String
-  solicitud   Solicitud @relation(fields: [solicitudId], references: [id], onDelete: Cascade)
+  solicitud   Solicitud @relation(fields: [solicitudId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   solicitudId String
   createdAt   DateTime  @default(now())
 
@@ -77,15 +77,4 @@ model Reporte {
   solicitudId  String    @unique
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
-}
-
-model Mensaje {
-  id          String    @id @default(uuid())
-  rol         String
-  contenido   String
-  solicitud   Solicitud @relation(fields: [solicitudId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  solicitudId String
-  createdAt   DateTime  @default(now())
-
-  @@index([solicitudId])
 }
