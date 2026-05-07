@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { ReporteDocument } from "@/lib/pdf/ReporteDocument";
-import { renderToBuffer, type DocumentProps } from "@react-pdf/renderer";
+import { renderToBuffer } from "@react-pdf/renderer";
 import { headers } from "next/headers";
 import React from "react";
 
@@ -27,18 +27,16 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
     return new Response("Reporte aún no disponible", { status: 409 });
   }
 
-  const element = React.createElement(ReporteDocument, {
-    glosa: solicitud.glosa,
-    reporteMarkdown: solicitud.reporte.textoReporte,
-    fecha: solicitud.reporte.createdAt,
-    userName: solicitud.user.name,
-  });
-
-  // El typing de @react-pdf/renderer exige ReactElement<DocumentProps> literal,
-  // pero ReporteDocument es un FC que retorna <Document>. Runtime-safe;
-  // el doble cast por `unknown` es la salida estándar para este mismatch.
-  const buffer = await renderToBuffer(
-    element as unknown as React.ReactElement<DocumentProps>,
+  // El typing de @react-pdf/renderer es estricto con ReactElement<DocumentProps>.
+  // ReporteDocument retorna <Document>, así que el cast es runtime-safe.
+  const render = renderToBuffer as (e: React.ReactElement) => Promise<Buffer>;
+  const buffer = await render(
+    React.createElement(ReporteDocument, {
+      glosa: solicitud.glosa,
+      reporteMarkdown: solicitud.reporte.textoReporte,
+      fecha: solicitud.reporte.createdAt,
+      userName: solicitud.user.name,
+    }),
   );
 
   return new Response(new Uint8Array(buffer), {
