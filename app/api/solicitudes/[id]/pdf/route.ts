@@ -32,9 +32,14 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
     reporteMarkdown: solicitud.reporte.textoReporte,
     fecha: solicitud.reporte.createdAt,
     userName: solicitud.user.name,
-  }) as React.ReactElement<DocumentProps>;
+  });
 
-  const buffer = await renderToBuffer(element);
+  // El typing de @react-pdf/renderer exige ReactElement<DocumentProps> literal,
+  // pero ReporteDocument es un FC que retorna <Document>. Runtime-safe;
+  // el doble cast por `unknown` es la salida estándar para este mismatch.
+  const buffer = await renderToBuffer(
+    element as unknown as React.ReactElement<DocumentProps>,
+  );
 
   return new Response(new Uint8Array(buffer), {
     headers: {
