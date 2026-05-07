@@ -9,7 +9,7 @@ import {
   sanitizeFilename,
 } from "@/lib/validators";
 import { uploadFile } from "@/lib/storage";
-import { analyzeSolicitud } from "@/lib/agent";
+import { runAgentTurn, type ConversationMessage } from "@/lib/agent";
 import { randomUUID } from "crypto";
 import { headers } from "next/headers";
 
@@ -90,22 +90,39 @@ async function handlePost(req: Request) {
     adjuntos.push({ filename: safe, mimeType: file.type, size: file.size });
   }
 
+  await prisma.mensaje.create({
+    data: { solicitudId: solicitud.id, rol: "user", contenido: parsed.data.glosa },
+  });
+
   await prisma.solicitud.update({
     where: { id: solicitud.id },
     data: { estado: "EN_PROCESO" },
   });
 
   try {
-    const reporte = await analyzeSolicitud({ glosa: parsed.data.glosa, adjuntos });
-    await prisma.$transaction([
-      prisma.reporte.create({
-        data: { solicitudId: solicitud.id, textoReporte: reporte },
-      }),
-      prisma.solicitud.update({
+    const messages: ConversationMessage[] = [{ role: "user", content: parsed.data.glosa }];
+    const result = await runAgentTurn(messages, adjuntos);
+
+    await prisma.mensaje.create({
+      data: { solicitudId: solicitud.id, rol: "assistant", contenido: result.text },
+    });
+
+    if (result.closed && result.solicitudFormal) {
+      await prisma.$transaction([
+        prisma.reporte.create({
+          data: { solicitudId: solicitud.id, textoReporte: result.solicitudFormal },
+        }),
+        prisma.solicitud.update({
+          where: { id: solicitud.id },
+          data: { estado: "CERRADA" },
+        }),
+      ]);
+    } else {
+      await prisma.solicitud.update({
         where: { id: solicitud.id },
-        data: { estado: "CERRADA" },
-      }),
-    ]);
+        data: { estado: "ACTIVA" },
+      });
+    }
   } catch (err) {
     console.error("[solicitudes] agent failed:", err);
     await prisma.solicitud.update({
@@ -116,7 +133,6 @@ async function handlePost(req: Request) {
       {
         error: "El análisis falló. Intenta nuevamente más tarde.",
         solicitudId: solicitud.id,
-        // DEBUG TEMPORAL — borrar después
         _debug: serializeError(err),
       },
       { status: 500 },
@@ -147,7 +163,6 @@ export async function GET() {
   return NextResponse.json({ solicitudes });
 }
 
-// DEBUG TEMPORAL — borrar después
 function serializeError(err: unknown) {
   const envSnapshot = {
     hasDatabaseUrl: !!process.env.DATABASE_URL,

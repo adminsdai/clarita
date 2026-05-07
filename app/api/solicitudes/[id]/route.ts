@@ -16,6 +16,10 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
       adjuntos: {
         select: { id: true, filename: true, mimeType: true, size: true, createdAt: true },
       },
+      mensajes: {
+        orderBy: { createdAt: "asc" },
+        select: { id: true, rol: true, contenido: true, createdAt: true },
+      },
       reporte: { select: { id: true, textoReporte: true, createdAt: true } },
     },
   });

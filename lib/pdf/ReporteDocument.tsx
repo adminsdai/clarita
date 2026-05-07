@@ -4,114 +4,138 @@ import {
   Text,
   View,
   StyleSheet,
-  Font,
 } from "@react-pdf/renderer";
+import React from "react";
 
 const styles = StyleSheet.create({
   page: {
     padding: 56,
+    paddingBottom: 72,
     fontSize: 11,
     fontFamily: "Helvetica",
     color: "#1A1F2A",
-    lineHeight: 1.5,
+    lineHeight: 1.6,
   },
   header: {
-    borderBottomWidth: 1,
-    borderBottomColor: "#7C5CFF",
-    paddingBottom: 14,
-    marginBottom: 22,
+    borderBottomWidth: 1.5,
+    borderBottomColor: "#1A1F2A",
+    paddingBottom: 12,
+    marginBottom: 24,
   },
   brand: {
     fontSize: 9,
-    color: "#7C5CFF",
     fontFamily: "Helvetica-Bold",
     letterSpacing: 1.5,
-    marginBottom: 6,
+    color: "#374151",
+    marginBottom: 4,
   },
   title: {
-    fontSize: 18,
+    fontSize: 16,
     fontFamily: "Helvetica-Bold",
     marginBottom: 4,
+    color: "#111827",
   },
   meta: {
     fontSize: 9,
     color: "#6B7280",
   },
-  section: { marginBottom: 14 },
-  sectionLabel: {
-    fontSize: 9,
-    fontFamily: "Helvetica-Bold",
-    color: "#6B7280",
-    letterSpacing: 1,
-    marginBottom: 4,
-    textTransform: "uppercase",
-  },
-  glosa: {
-    fontSize: 10,
-    color: "#374151",
-    marginBottom: 8,
-  },
   h1: {
-    fontSize: 15,
+    fontSize: 14,
     fontFamily: "Helvetica-Bold",
-    marginTop: 16,
-    marginBottom: 6,
+    marginTop: 18,
+    marginBottom: 8,
     color: "#111827",
   },
   h2: {
-    fontSize: 13,
+    fontSize: 12,
     fontFamily: "Helvetica-Bold",
-    marginTop: 12,
-    marginBottom: 5,
+    marginTop: 14,
+    marginBottom: 6,
     color: "#1F2937",
   },
   h3: {
     fontSize: 11,
     fontFamily: "Helvetica-Bold",
-    marginTop: 8,
+    marginTop: 10,
     marginBottom: 4,
     color: "#1F2937",
   },
-  p: { marginBottom: 6 },
-  bullet: { flexDirection: "row", marginBottom: 3, paddingLeft: 8 },
-  bulletDot: { width: 12 },
+  p: {
+    marginBottom: 8,
+    textAlign: "justify" as const,
+  },
+  bold: {
+    fontFamily: "Helvetica-Bold",
+  },
+  italic: {
+    fontFamily: "Helvetica-Oblique",
+  },
+  bullet: {
+    flexDirection: "row" as const,
+    marginBottom: 4,
+    paddingLeft: 12,
+  },
+  bulletDot: { width: 14 },
   bulletText: { flex: 1 },
   footer: {
-    position: "absolute",
+    position: "absolute" as const,
     bottom: 24,
     left: 56,
     right: 56,
-    fontSize: 8,
+    fontSize: 7.5,
     color: "#9CA3AF",
-    textAlign: "center",
-    borderTopWidth: 1,
-    borderTopColor: "#E5E7EB",
+    textAlign: "center" as const,
+    borderTopWidth: 0.5,
+    borderTopColor: "#D1D5DB",
     paddingTop: 8,
   },
 });
 
+type Span = { text: string; bold: boolean; italic: boolean };
+
 type Block =
-  | { type: "h1" | "h2" | "h3" | "p"; text: string }
-  | { type: "ul"; items: string[] }
-  | { type: "ol"; items: string[] };
+  | { type: "h1" | "h2" | "h3"; text: string }
+  | { type: "p"; spans: Span[] }
+  | { type: "ul"; items: Span[][] }
+  | { type: "ol"; items: Span[][] };
+
+function parseInline(s: string): Span[] {
+  const spans: Span[] = [];
+  const regex = /\*\*(.+?)\*\*|\*(.+?)\*|`(.+?)`|\[(.+?)\]\((.+?)\)|([^*`[]+)/g;
+  let match;
+  while ((match = regex.exec(s)) !== null) {
+    if (match[1] !== undefined) {
+      spans.push({ text: match[1], bold: true, italic: false });
+    } else if (match[2] !== undefined) {
+      spans.push({ text: match[2], bold: false, italic: true });
+    } else if (match[3] !== undefined) {
+      spans.push({ text: match[3], bold: false, italic: false });
+    } else if (match[4] !== undefined) {
+      spans.push({ text: `${match[4]} (${match[5]})`, bold: false, italic: false });
+    } else if (match[6] !== undefined) {
+      spans.push({ text: match[6], bold: false, italic: false });
+    }
+  }
+  return spans.length > 0 ? spans : [{ text: s, bold: false, italic: false }];
+}
 
 function parseMarkdown(md: string): Block[] {
   const lines = md.split(/\r?\n/);
   const blocks: Block[] = [];
   let buffer: string[] = [];
   let listType: "ul" | "ol" | null = null;
-  let listItems: string[] = [];
+  let listItems: Span[][] = [];
 
   const flushParagraph = () => {
     if (buffer.length > 0) {
       const text = buffer.join(" ").trim();
-      if (text) blocks.push({ type: "p", text: stripInlineMd(text) });
+      if (text) blocks.push({ type: "p", spans: parseInline(text) });
       buffer = [];
     }
   };
   const flushList = () => {
     if (listType && listItems.length > 0) {
-      blocks.push({ type: listType, items: listItems.map(stripInlineMd) });
+      blocks.push({ type: listType, items: listItems });
     }
     listType = null;
     listItems = [];
@@ -121,21 +145,21 @@ function parseMarkdown(md: string): Block[] {
     const line = raw.replace(/\s+$/, "");
     if (line.startsWith("# ")) {
       flushParagraph(); flushList();
-      blocks.push({ type: "h1", text: stripInlineMd(line.slice(2).trim()) });
+      blocks.push({ type: "h1", text: line.slice(2).trim() });
     } else if (line.startsWith("## ")) {
       flushParagraph(); flushList();
-      blocks.push({ type: "h2", text: stripInlineMd(line.slice(3).trim()) });
+      blocks.push({ type: "h2", text: line.slice(3).trim() });
     } else if (line.startsWith("### ")) {
       flushParagraph(); flushList();
-      blocks.push({ type: "h3", text: stripInlineMd(line.slice(4).trim()) });
+      blocks.push({ type: "h3", text: line.slice(4).trim() });
     } else if (/^\s*[-*]\s+/.test(line)) {
       flushParagraph();
       if (listType !== "ul") { flushList(); listType = "ul"; }
-      listItems.push(line.replace(/^\s*[-*]\s+/, ""));
+      listItems.push(parseInline(line.replace(/^\s*[-*]\s+/, "")));
     } else if (/^\s*\d+\.\s+/.test(line)) {
       flushParagraph();
       if (listType !== "ol") { flushList(); listType = "ol"; }
-      listItems.push(line.replace(/^\s*\d+\.\s+/, ""));
+      listItems.push(parseInline(line.replace(/^\s*\d+\.\s+/, "")));
     } else if (line.trim() === "") {
       flushParagraph(); flushList();
     } else {
@@ -147,12 +171,25 @@ function parseMarkdown(md: string): Block[] {
   return blocks;
 }
 
-function stripInlineMd(s: string): string {
-  return s
-    .replace(/\*\*(.+?)\*\*/g, "$1")
-    .replace(/\*(.+?)\*/g, "$1")
-    .replace(/`(.+?)`/g, "$1")
-    .replace(/\[(.+?)\]\((.+?)\)/g, "$1 ($2)");
+function RenderSpans({ spans }: { spans: Span[] }) {
+  return (
+    <>
+      {spans.map((span, i) => (
+        <Text
+          key={i}
+          style={
+            span.bold
+              ? styles.bold
+              : span.italic
+                ? styles.italic
+                : undefined
+          }
+        >
+          {span.text}
+        </Text>
+      ))}
+    </>
+  );
 }
 
 export function ReporteDocument({
@@ -169,30 +206,32 @@ export function ReporteDocument({
   const blocks = parseMarkdown(reporteMarkdown);
   const fechaFmt = new Intl.DateTimeFormat("es-CL", {
     dateStyle: "long",
-    timeStyle: "short",
   }).format(fecha);
 
   return (
     <Document>
-      <Page size="A4" style={styles.page}>
+      <Page size="LETTER" style={styles.page}>
         <View style={styles.header} fixed>
-          <Text style={styles.brand}>CDT — ASISTENTE LPDP</Text>
-          <Text style={styles.title}>Reporte de análisis legal</Text>
+          <Text style={styles.brand}>CLARITA — ASISTENTE DE DERECHOS DE DATOS</Text>
+          <Text style={styles.title}>Solicitud de Ejercicio de Derechos</Text>
           <Text style={styles.meta}>
             {userName} · {fechaFmt}
           </Text>
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>Caso descrito</Text>
-          <Text style={styles.glosa}>{glosa}</Text>
-        </View>
-
         {blocks.map((block, i) => {
-          if (block.type === "h1") return <Text key={i} style={styles.h1}>{block.text}</Text>;
-          if (block.type === "h2") return <Text key={i} style={styles.h2}>{block.text}</Text>;
-          if (block.type === "h3") return <Text key={i} style={styles.h3}>{block.text}</Text>;
-          if (block.type === "p") return <Text key={i} style={styles.p}>{block.text}</Text>;
+          if (block.type === "h1")
+            return <Text key={i} style={styles.h1}>{block.text}</Text>;
+          if (block.type === "h2")
+            return <Text key={i} style={styles.h2}>{block.text}</Text>;
+          if (block.type === "h3")
+            return <Text key={i} style={styles.h3}>{block.text}</Text>;
+          if (block.type === "p")
+            return (
+              <Text key={i} style={styles.p}>
+                <RenderSpans spans={block.spans} />
+              </Text>
+            );
           if (block.type === "ul" || block.type === "ol") {
             return (
               <View key={i}>
@@ -201,7 +240,9 @@ export function ReporteDocument({
                     <Text style={styles.bulletDot}>
                       {block.type === "ul" ? "•" : `${j + 1}.`}
                     </Text>
-                    <Text style={styles.bulletText}>{item}</Text>
+                    <Text style={styles.bulletText}>
+                      <RenderSpans spans={item} />
+                    </Text>
                   </View>
                 ))}
               </View>
@@ -213,7 +254,7 @@ export function ReporteDocument({
         <Text
           style={styles.footer}
           render={({ pageNumber, totalPages }) =>
-            `Reporte generado por CDT · LPDP Chile · página ${pageNumber} de ${totalPages}`
+            `Documento generado por Clarita · Herramienta de IA · No constituye asesoría jurídica · Página ${pageNumber} de ${totalPages}`
           }
           fixed
         />

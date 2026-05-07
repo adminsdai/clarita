@@ -36,6 +36,7 @@ model Solicitud {
   user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId         String
   adjuntos       Adjunto[]
+  mensajes       Mensaje[]
   reporte        Reporte?
   mensajes       Mensaje[]
   createdAt      DateTime        @default(now())
@@ -51,6 +52,17 @@ model Adjunto {
   mimeType    String
   size        Int
   storagePath String
+  solicitud   Solicitud @relation(fields: [solicitudId], references: [id], onDelete: Cascade)
+  solicitudId String
+  createdAt   DateTime  @default(now())
+
+  @@index([solicitudId])
+}
+
+model Mensaje {
+  id          String    @id @default(uuid())
+  rol         String
+  contenido   String
   solicitud   Solicitud @relation(fields: [solicitudId], references: [id], onDelete: Cascade)
   solicitudId String
   createdAt   DateTime  @default(now())
